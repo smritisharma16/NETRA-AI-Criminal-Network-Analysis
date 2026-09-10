@@ -1,0 +1,72 @@
+﻿function AssistantBubble({ msg, onAction, onEntityClick }: { msg: StructuredMessage; onAction: (action: ActionItem) => void; onEntityClick: (id: string, name: string, type: string) => void }) {
+  const mainText = msg.answer || msg.text || "";
+  const hasSections = (msg.facts?.length || msg.observations?.length || msg.uncertainties?.length);
+
+  return (
+    <div className="flex flex-col gap-2 mb-4 bg-surface p-4 rounded-xl border border-outline-variant shadow-sm">
+      <div className="flex items-center gap-2 mb-2 border-b border-outline-variant/30 pb-2">
+        <Bot className="w-4 h-4 text-primary" />
+        <span className="text-[11px] font-bold text-primary uppercase tracking-wider">NETRA Assistant</span>
+      </div>
+
+      <div className="text-on-surface text-sm space-y-5">
+        <p className="leading-relaxed whitespace-pre-wrap">{renderText(mainText, onEntityClick)}</p>
+
+        {hasSections ? (
+          <div className="space-y-5 pt-1">
+            {msg.facts && msg.facts.length > 0 && (
+              <div>
+                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2 border-b border-outline-variant/30 pb-1">
+                  What I Found
+                </p>
+                <ul className="space-y-2">
+                  {msg.facts.map((f, i) => (
+                    <li key={i} className="text-xs text-on-surface flex items-start gap-2">
+                      <span className="w-1 h-1 rounded-full bg-primary mt-1.5 shrink-0" />
+                      <span className="leading-relaxed">{renderText(f.text, onEntityClick)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {msg.observations && msg.observations.length > 0 && (
+              <div className="bg-amber-500/5 border-l-2 border-amber-500 pl-3 py-2 rounded-r-lg">
+                <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1.5">
+                  Why This Matters
+                </p>
+                <ul className="space-y-1.5">
+                  {msg.observations.map((o, i) => (
+                    <li key={i} className="text-xs text-on-surface leading-relaxed">
+                      {renderText(o.text, onEntityClick)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {msg.uncertainties && msg.uncertainties.length > 0 && (
+              <div>
+                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2 border-b border-outline-variant/30 pb-1">
+                  What Remains Unknown
+                </p>
+                <ul className="space-y-2">
+                  {msg.uncertainties.map((u, i) => (
+                    <li key={i} className="text-xs text-on-surface-variant flex items-start gap-2">
+                      <HelpCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 opacity-60 text-on-surface-variant" />
+                      <span className="leading-relaxed">{renderText(u.text, onEntityClick)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        <TracePanel trace={msg.trace} />
+      </div>
+      
+      <ActionCards actions={msg.actions || []} onAction={onAction} />
+    </div>
+  );
+}

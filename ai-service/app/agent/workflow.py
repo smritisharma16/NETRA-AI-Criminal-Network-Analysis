@@ -9,6 +9,25 @@ from app.agent.tools import get_all_tools
 from app.agent.prompts import SYSTEM_PROMPT
 import json
 import logging
+import re
+
+def sanitize_answer(text: str) -> str:
+    if not text:
+        return text
+    # Remove raw <tool_call> blocks
+    text = re.sub(r'<tool_call>.*?</tool_call>', '', text, flags=re.DOTALL)
+    # Remove <function=...> blocks
+    text = re.sub(r'<function=.*?>.*?</function>', '', text, flags=re.DOTALL)
+    
+    # Strip LLM hallucinated metadata sections (e.g. "**Suggested Actions:**\n- **Trace...**")
+    text = re.sub(r'(?i)\n*#* *\*?Suggested Actions:?\*?.*', '', text, flags=re.DOTALL)
+    text = re.sub(r'(?i)\n*#* *\*?Actions:?\*?.*', '', text, flags=re.DOTALL)
+    
+    # Strip LLM hallucinated fields in plain text
+    text = re.sub(r'(?im)^.*(Target ID:|Type:|Prompt:|is_recommended:).*$\n?', '', text)
+    
+    # Strip any leading/trailing whitespace
+    return text.strip()
 
 from psycopg_pool import ConnectionPool
 from langgraph.checkpoint.postgres import PostgresSaver
@@ -34,7 +53,17 @@ llm_with_tools = llm.bind_tools(tools)
 
 def interpret_query(state: InvestigationState) -> InvestigationState:
     messages = state.get("messages", [])
-    new_message = HumanMessage(content=f"Case: {state.get('case_id')}\nQuestion: {state.get('question')}")
+    
+    # Context Propagation
+    context = state.get("context", {})
+    context_str = ""
+    if context:
+        context_str = "CURRENT CHAT CONTEXT (Use this to resolve 'it', 'this person', 'they', etc):\n"
+        for k, v in context.items():
+            context_str += f"- {k}: {v}\n"
+        context_str += "\n"
+        
+    new_message = HumanMessage(content=f"{context_str}Question: {state.get('question')}")
     
     if not messages:
         return {"messages": [SystemMessage(content=SYSTEM_PROMPT), new_message]}
@@ -60,15 +89,18 @@ def should_continue(state: InvestigationState) -> Literal["tools", "__end__"]:
     messages = state["messages"]
     last_message = messages[-1]
     
-    # Check for loop limits
-    # LangGraph does this automatically if recursion_limit is set, but we can also manually check
-    tool_calls = [m for m in messages if hasattr(m, 'tool_calls') and m.tool_calls]
-    if len(tool_calls) > 12:
-        return "__end__"
-        
+    tool_calls_count = len([m for m in messages if hasattr(m, 'tool_calls') and m.tool_calls])
+    
     # If the LLM makes a tool call, we transition to the "tools" node
     if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+        if any(tc["name"] == "submit_final_response" for tc in last_message.tool_calls):
+            return "__end__"
+            
+        if tool_calls_count > 20:
+            logger.warning("Investigation exceeded 20 tool calls. Forcing termination.")
+            return "__end__"
         return "tools"
+        
     # Otherwise, it has produced a final response
     return "__end__"
 
@@ -84,7 +116,7 @@ workflow.add_edge("tools", "agent")
 
 app_workflow = workflow.compile(checkpointer=checkpointer)
 
-def run_investigation(case_id: str, question: str, request_id: str, thread_id: str = None) -> dict:
+def run_investigation(case_id: str, question: str, request_id: str, thread_id: str = None, context: dict = None) -> dict:
     if not thread_id:
         import uuid
         thread_id = str(uuid.uuid4())
@@ -93,38 +125,66 @@ def run_investigation(case_id: str, question: str, request_id: str, thread_id: s
         "request_id": request_id,
         "case_id": case_id,
         "question": question,
+        "context": context or {},
         "errors": []
     }
     
     config = {
         "configurable": {"thread_id": thread_id},
-        "recursion_limit": 15
+        "recursion_limit": 50
     }
     
     # Run graph with recursion limit
     try:
         result = app_workflow.invoke(initial_state, config)
-        final_message = result["messages"][-1].content
+        last_message = result["messages"][-1]
         
-        # Extract trace metadata (the tool calls made)
-        trace = []
+        # Initialize structured output
+        raw_content = last_message.content or ""
+        structured_response = {
+            "answer": sanitize_answer(raw_content) or "[No text returned]",
+            "facts": [],
+            "observations": [],
+            "uncertainties": [],
+            "actions": [],
+            "trace": {"tools_used": [], "truncated": False}
+        }
+        
+        # Check if the agent called submit_final_response
+        if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+            for tc in last_message.tool_calls:
+                if tc["name"] == "submit_final_response":
+                    args = tc["args"]
+                    # Override the default answer with the structured one
+                    tool_answer = args.get("answer", "")
+                    if tool_answer:
+                        structured_response["answer"] = sanitize_answer(tool_answer)
+                    structured_response["facts"] = args.get("facts", [])
+                    structured_response["observations"] = args.get("observations", [])
+                    structured_response["uncertainties"] = args.get("uncertainties", [])
+                    structured_response["actions"] = args.get("actions", [])
+                    break
+        
+        # Add safety fallback
+        if not structured_response["answer"] and hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+            structured_response["answer"] = "[INCOMPLETE] The investigation reached its safety limit before a final answer could be generated."
+        
+        # Extract trace metadata
+        trace_tools = []
         for msg in result["messages"]:
             if hasattr(msg, 'tool_calls') and msg.tool_calls:
                 for tc in msg.tool_calls:
-                    trace.append({
-                        "tool": tc['name'],
-                        "arguments": tc['args']
-                    })
-            if hasattr(msg, 'name') and msg.type == 'tool':
-                # this is a tool result message
-                # we don't output the full result to trace to keep it clean, just that it succeeded
-                pass
-                
+                    if tc["name"] != "submit_final_response":
+                        trace_tools.append({
+                            "tool": tc['name'],
+                            "arguments": tc['args']
+                        })
+        structured_response["trace"]["tools_used"] = trace_tools
+        
         return {
             "request_id": request_id,
             "thread_id": thread_id,
-            "answer": final_message,
-            "trace": trace,
+            **structured_response,
             "errors": result.get("errors", [])
         }
     except Exception as e:

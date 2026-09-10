@@ -1,4 +1,4 @@
-﻿"""
+"""
 tool_service.py — Service Adapter Layer for NETRA Investigation Tools (Phase A)
 
 This module provides InvestigationService, a single facade that:
@@ -62,13 +62,11 @@ class InvestigationService:
         if not query or not query.strip():
             return _error("INVALID_INPUT", "query must be a non-empty string", retryable=False)
         try:
-            cases = (
-                self.db.query(Case)
-                .filter(Case.title.ilike(f"%{query}%"))
-                .limit(MAX_LIST_ITEMS)
-                .all()
-            )
-            return [
+            q = self.db.query(Case).filter(Case.title.ilike(f"%{query}%"))
+            total_available = q.count()
+            cases = q.limit(MAX_LIST_ITEMS).all()
+            
+            results = [
                 {
                     "case_id": c.case_id,
                     "title": c.title,
@@ -76,22 +74,31 @@ class InvestigationService:
                 }
                 for c in cases
             ]
+            return {
+                "truncated": total_available > MAX_LIST_ITEMS,
+                "total_available": total_available,
+                "returned": len(results),
+                "results": results
+            }
         except Exception as exc:
             logger.error("search_cases failed: %s", exc, exc_info=True)
             return _error("DB_ERROR", "Could not search cases at this time.", retryable=True)
 
-    def search_entities(self, query: str) -> list:
+    def search_entities(self, query: str, case_id: str = None) -> dict:
         """Resolve investigator-mentioned names to canonical NETRA entities."""
         if not query or not query.strip():
             return _error("INVALID_INPUT", "query must be a non-empty string", retryable=False)
         try:
-            entities = (
-                self.db.query(Entity)
-                .filter(Entity.canonical_name.ilike(f"%{query}%"))
-                .limit(MAX_LIST_ITEMS)
-                .all()
-            )
-            return [
+            q = self.db.query(Entity).filter(Entity.canonical_name.ilike(f"%{query}%"))
+            if case_id:
+                # Add a join or subquery to filter by case_entities
+                from app.db.models import CaseEntity
+                q = q.join(CaseEntity, Entity.entity_id == CaseEntity.entity_id).filter(CaseEntity.case_id == case_id)
+                
+            total_available = q.count()
+            entities = q.limit(MAX_LIST_ITEMS).all()
+            
+            results = [
                 {
                     "entity_id": e.entity_id,
                     "entity_type": e.entity_type,
@@ -99,6 +106,13 @@ class InvestigationService:
                 }
                 for e in entities
             ]
+            
+            return {
+                "truncated": total_available > MAX_LIST_ITEMS,
+                "total_available": total_available,
+                "returned": len(results),
+                "results": results
+            }
         except Exception as exc:
             logger.error("search_entities failed: %s", exc, exc_info=True)
             return _error("DB_ERROR", "Could not search entities at this time.", retryable=True)
@@ -156,14 +170,20 @@ class InvestigationService:
             # KEY FIX: call get_case_subgraph, not the non-existent explore_graph
             result = repo.get_case_subgraph(case_id, entity_id, depth)
 
-            nodes = result.get("nodes", [])[:MAX_NODES]
-            edges = result.get("edges", [])[:MAX_EDGES]
+            all_nodes = result.get("nodes", [])
+            all_edges = result.get("edges", [])
+            
+            nodes = all_nodes[:MAX_NODES]
+            edges = all_edges[:MAX_EDGES]
 
             return {
+                "truncated": len(all_nodes) > MAX_NODES or len(all_edges) > MAX_EDGES,
+                "total_available_nodes": len(all_nodes),
+                "returned_nodes": len(nodes),
+                "total_available_edges": len(all_edges),
+                "returned_edges": len(edges),
                 "nodes": nodes,
                 "edges": edges,
-                "node_count": len(nodes),
-                "edge_count": len(edges),
             }
         except Exception as exc:
             logger.error(
@@ -175,6 +195,88 @@ class InvestigationService:
                 "Could not explore the network graph at this time.",
                 retryable=True,
             )
+
+    def get_case_network_summary(self, case_id: str) -> dict:
+        """Return a structured summary of ALL entities and relationships in a case."""
+        if not case_id or not case_id.strip():
+            return _error("INVALID_INPUT", "case_id must be a non-empty string", retryable=False)
+        try:
+            repo = AgeGraphRepository(self.db, "crime_network")
+            result = repo.get_case_subgraph(case_id, None, 1) # depth doesn't matter if entity_id is None
+            
+            all_nodes = result.get("nodes", [])
+            all_edges = result.get("edges", [])
+            
+            nodes = all_nodes[:MAX_NODES]
+            edges = all_edges[:MAX_EDGES]
+            
+            return {
+                "truncated": len(all_nodes) > MAX_NODES or len(all_edges) > MAX_EDGES,
+                "total_available_nodes": len(all_nodes),
+                "returned_nodes": len(nodes),
+                "total_available_edges": len(all_edges),
+                "returned_edges": len(edges),
+                "nodes": nodes,
+                "edges": edges,
+            }
+        except Exception as exc:
+            logger.error("get_case_network_summary(case=%s) failed: %s", case_id, exc, exc_info=True)
+            return _error("GRAPH_ERROR", "Could not retrieve case network summary.", retryable=True)
+
+    def get_entity_relationships(self, entity_id: str, case_id: str = None) -> dict:
+        """Return immediate relationships for an entity, optionally scoped to a case."""
+        if not entity_id or not entity_id.strip():
+            return _error("INVALID_INPUT", "entity_id must be a non-empty string", retryable=False)
+        try:
+            repo = AgeGraphRepository(self.db, "crime_network")
+            if case_id:
+                result = repo.get_case_subgraph(case_id, entity_id, 1)
+            else:
+                result = repo.get_global_subgraph(entity_id, 1)
+                
+            all_edges = result.get("edges", [])
+            edges = all_edges[:MAX_EDGES]
+            
+            return {
+                "truncated": len(all_edges) > MAX_EDGES,
+                "total_available_edges": len(all_edges),
+                "returned_edges": len(edges),
+                "edges": edges,
+            }
+        except Exception as exc:
+            logger.error("get_entity_relationships(entity=%s, case=%s) failed: %s", entity_id, case_id, exc, exc_info=True)
+            return _error("GRAPH_ERROR", "Could not retrieve entity relationships.", retryable=True)
+
+    def find_cross_case_connections(self, entity_id: str) -> dict:
+        """Find other cases that share this entity."""
+        if not entity_id or not entity_id.strip():
+            return _error("INVALID_INPUT", "entity_id must be a non-empty string", retryable=False)
+        try:
+            from app.db.models import CaseEntity, Case
+            connections = (
+                self.db.query(CaseEntity, Case)
+                .join(Case, CaseEntity.case_id == Case.case_id)
+                .filter(CaseEntity.entity_id == entity_id)
+                .limit(MAX_LIST_ITEMS)
+                .all()
+            )
+            
+            results = [
+                {
+                    "case_id": c.case_id,
+                    "case_title": c.title,
+                }
+                for ce, c in connections
+            ]
+            
+            return {
+                "truncated": len(results) == MAX_LIST_ITEMS,
+                "returned": len(results),
+                "cases": results
+            }
+        except Exception as exc:
+            logger.error("find_cross_case_connections(%s) failed: %s", entity_id, exc, exc_info=True)
+            return _error("DB_ERROR", "Could not retrieve cross-case connections.", retryable=True)
 
     # ── Relationship ─────────────────────────────────────────────────────────
 

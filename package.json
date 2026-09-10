@@ -12,6 +12,7 @@
   "dependencies": {
     "cytoscape": "^3.34.2",
     "framer-motion": "^13.1.1",
+    "lucide-react": "^1.43.0",
     "rc-slider": "^11.1.9",
     "react": "^19.2.8",
     "react-cytoscapejs": "^2.0.0",

@@ -18,6 +18,13 @@ const GraphExplorer = () => {
     const cyRef = useRef<any>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Chat ↔ Graph context state
+    const [chatEntityId, setChatEntityId] = useState<string | undefined>(undefined);
+    const [chatEntityName, setChatEntityName] = useState<string | undefined>(undefined);
+    const [chatEntityType, setChatEntityType] = useState<string | undefined>(undefined);
+    const [chatRelationshipId, setChatRelationshipId] = useState<string | undefined>(undefined);
+    const [chatRelationshipType, setChatRelationshipType] = useState<string | undefined>(undefined);
+
     const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
     const handleFeedback = async (decision: string) => {
@@ -467,6 +474,23 @@ const GraphExplorer = () => {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Ask NETRA CTA */}
+                                <div className="pt-4 border-t border-outline-variant mt-2">
+                                    <button
+                                        onClick={() => {
+                                            setChatEntityId(selectedNode.id);
+                                            setChatEntityName(selectedNode.label);
+                                            setChatEntityType(selectedNode.type);
+                                            setChatRelationshipId(undefined);
+                                            setChatRelationshipType(undefined);
+                                        }}
+                                        className="w-full flex items-center justify-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg py-2 px-3 text-sm font-medium transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined text-base">smart_toy</span>
+                                        Ask NETRA about {selectedNode.label}
+                                    </button>
+                                </div>
                             </div>
                             </>
                         )}
@@ -511,9 +535,22 @@ const GraphExplorer = () => {
                                     </div>
                                 </div>
                                 <div className="mt-4 pt-4 border-t border-outline-variant">
-                                    <p className="text-xs text-on-surface-variant">
+                                    <p className="text-xs text-on-surface-variant mb-3">
                                         This relationship has been validated by the NETRA backend and projected into Apache AGE.
                                     </p>
+                                    <button
+                                        onClick={() => {
+                                            setChatRelationshipId(selectedEdge.relationship_id || selectedEdge.id);
+                                            setChatRelationshipType(selectedEdge.relationship_type || selectedEdge.label);
+                                            setChatEntityId(undefined);
+                                            setChatEntityName(undefined);
+                                            setChatEntityType(undefined);
+                                        }}
+                                        className="w-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg py-2 px-3 text-sm font-medium transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined text-base">smart_toy</span>
+                                        Investigate Relationship
+                                    </button>
                                 </div>
                             </div>
                             </>
@@ -521,7 +558,14 @@ const GraphExplorer = () => {
                     </aside>
                 ) : null}
             </div>
-            <Chatbot caseId={caseId} />
+            <Chatbot
+                caseId={caseId}
+                selectedEntityId={chatEntityId}
+                selectedEntityName={chatEntityName}
+                selectedEntityType={chatEntityType}
+                selectedRelationshipId={chatRelationshipId}
+                selectedRelationshipType={chatRelationshipType}
+            />
         </div>
         </PageTransition>
     );

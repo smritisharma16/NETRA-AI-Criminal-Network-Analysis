@@ -142,7 +142,7 @@ const Dashboard = () => {
 
 </div>
 <div className="flex items-center gap-4">
-<span className="text-label-md font-label-md hidden sm:inline-block">हिन्दी/English</span>
+<span className="text-label-md font-label-md hidden sm:inline-block">Hindi/English</span>
 <button className="p-2 hover:bg-primary-container transition-colors rounded-full opacity-80 hover:opacity-100 relative">
 <span className="material-symbols-outlined">notifications</span>
 <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>

@@ -1,6 +1,7 @@
 package com.example.CrimeAi.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Map;
 
 public class InvestigationQueryRequest {
     @JsonProperty("case_id")
@@ -10,6 +11,8 @@ public class InvestigationQueryRequest {
     private String threadId;
 
     private String question;
+
+    private Map<String, Object> context;
 
     public InvestigationQueryRequest() {}
 
@@ -21,4 +24,7 @@ public class InvestigationQueryRequest {
 
     public String getQuestion() { return question; }
     public void setQuestion(String question) { this.question = question; }
+
+    public Map<String, Object> getContext() { return context; }
+    public void setContext(Map<String, Object> context) { this.context = context; }
 }

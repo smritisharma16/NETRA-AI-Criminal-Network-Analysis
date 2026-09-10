@@ -16,14 +16,16 @@ import ProfilesList from './pages/ProfilesList';
 import ProfileDetail from './pages/ProfileDetail';
 
 import { AuthProvider } from './context/AuthContext';
+import { InvestigationContextProvider } from './context/InvestigationContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Login />} />
+      <InvestigationContextProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Login />} />
           
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
@@ -46,6 +48,7 @@ function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </InvestigationContextProvider>
     </AuthProvider>
   );
 }

@@ -42,6 +42,9 @@ public class AiServiceClient {
         if (request.getThreadId() != null) {
             body.put("thread_id", request.getThreadId());
         }
+        if (request.getContext() != null) {
+            body.put("context", request.getContext());
+        }
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 

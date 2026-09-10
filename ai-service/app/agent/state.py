@@ -1,4 +1,4 @@
-﻿from typing import TypedDict, List, Dict, Any, Annotated, Optional
+from typing import TypedDict, List, Dict, Any, Annotated, Optional
 import operator
 
 def merge_lists(a: list, b: list) -> list:
@@ -11,6 +11,7 @@ class InvestigationState(TypedDict):
     investigator_id: Optional[str]
     case_id: str
     question: str
+    context: Optional[Dict]
 
     # Message history for LangGraph (holds AIMessage, HumanMessage, ToolMessage)
     messages: Annotated[List[Any], merge_lists]
