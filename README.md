@@ -1,103 +1,91 @@
-# NCRB AI Portal - Investigation & Network Analysis
+﻿<h1 align="center">NETRA 👁️</h1>
+<p align="center"><b>National Evidence Tracking & Retrieval Architecture</b></p>
+<p align="center"><i>SIH 2026 Submission — Unified AI Intelligence Platform for Law Enforcement</i></p>
 
-Welcome to the **NCRB AI Portal**, an advanced, case-centric dashboard designed for law enforcement to manage investigations, map criminal networks, and generate behavioral profiles.
-
-This document serves as a comprehensive guide for the development team to understand the architecture, data flow, and key features of the application.
-
----
-
-## 📌 Project Architecture (Case-Centric Model)
-The core philosophy of this portal is **Case-Centric Isolation**. All data, networks, and evidence are strictly bound to a manually defined `Case ID` (e.g., `NCRB-2026-001`). 
-
-The application routing is built around this rule:
-1. Users search or select a case.
-2. The user enters a dedicated "Case Workspace" (`/cases/:caseId`).
-3. All subsequent modules (Network Analysis, Profiling, Evidence) pull the `:caseId` from the URL parameters (`useParams`) and filter their respective datasets to show **only** information relevant to that specific investigation.
+> **🚨 SIMULATION ENVIRONMENT — FICTIONAL DATA — NO LIVE AGENCY INTEGRATION**  
+> *This repository contains a prototype built for the Smart India Hackathon. All cases, names, and networks are procedurally generated mock data for demonstration purposes.*
 
 ---
 
-## 🚀 Key Features
+## 📖 The Problem: Information Silos in Law Enforcement
 
-### 1. Dashboard & Global Case Search
-* **Search Engine:** A robust search bar (using HTML forms for native accessibility) located on the Dashboard. 
-* **Case Summaries:** Searching a Case ID pulls metadata and instantly displays a comprehensive summary card showing Crime Type, Assignee, Final Results (if solved), and key suspects.
-* **Navigation:** From the summary, investigators can directly transition into module-specific views (like Network Analysis) via the **View & Explore** link.
+Modern criminal networks, financial frauds, and terror operations cross state and agency boundaries. However, law enforcement agencies frequently operate in data silos. 
 
-### 2. Start New Investigation
-* **Manual Case ID:** Auto-generation is disabled. Investigators manually define the Case ID to match physical records.
-* **Duplicate Prevention:** The form checks existing datasets to prevent overwriting or duplicating active case IDs.
-* **Persistent Storage:** New cases are saved to browser `localStorage` and instantly merged with static mock data, maintaining a seamless SPA experience.
+When investigators rely on fragmented databases, critical connections—such as shared phone numbers, overlapping financial transactions, or common associates—are missed or delayed. The lack of real-time knowledge synthesis drastically slows down time-sensitive investigations.
 
-### 3. Network Analysis (Graph Explorer)
-* **Visualizing Crime:** Uses `react-cytoscapejs` to draw highly interactive force-directed graphs (Nodes = Suspects/Phones/Locations, Edges = Relationships).
-* **Data Binding:** The graph securely filters the global `sampleGraph.json` dataset, rendering exactly the entities tied to the active Case ID in the URL. 
-* **Empty States:** If an investigation is brand new and has no network data, a clean "No connected entities available" fallback UI is displayed rather than a broken or generic graph.
+## 🚀 The Solution: NETRA
 
-### 4. Criminal Profiling & AI Chatbot
-* **Suspect Deep-Dives:** Detailed behavioral analysis screens for flagged entities.
-* **Global Assistant:** A floating `Chatbot` component available across the app (animated with `framer-motion`) to provide context-aware AI assistance without breaking the investigator's flow.
+**NETRA** solves this by acting as an **AI-driven Unified Knowledge Graph**. 
+
+Instead of treating case files as static documents, NETRA ingests multimodal evidence and automatically maps semantic relationships into a central graph database (Apache AGE). It equips investigators with **Multi-Agent AI** that can autonomously traverse suspect networks, generate behavioral profiles, and answer complex investigative queries in natural language.
 
 ---
 
-## 🏗 Tech Stack
+## 📸 System Walkthrough
 
-* **Core Framework:** React 18, TypeScript, Vite
-* **Routing:** React Router DOM v6
-* **Styling:** Tailwind CSS (Custom Design System with Material Design 3 surface colors)
-* **Data Visualization:** Cytoscape.js (`react-cytoscapejs`), Recharts
-* **Animations:** Framer Motion (`framer-motion`)
-* **Icons:** Google Material Symbols
+### 1. Unified Investigator Dashboard
+NETRA provides a centralized, React-based dashboard where officers can track active cases, view recent intelligence alerts, and collaborate across agency boundaries with strict Role-Based Access Control (RBAC).
 
----
+![Dashboard](images/Screenshot%202026-10-01%20203253.png)
 
-## 📂 Folder Structure
+### 2. AI-Assisted Investigation Thread (Multi-Agent Workflow)
+Using a LangGraph-powered Multi-Agent architecture, investigators can chat directly with the case file. The AI agent translates natural language into secure graph queries, analyzes the evidence, and generates actionable criminal profiles.
 
-```text
-src/
-├── components/          # Reusable UI (Sidebar, Skeleton loaders, Chatbot, PageTransitions)
-├── mockData/            # JSON databases simulating backend responses
-│   ├── cases.json       # Core investigations database
-│   ├── profiles.json    # Suspect/criminal profiles
-│   └── sampleGraph.json # Node/Edge definitions for Network Analysis
-├── pages/               # Route-level components
-│   ├── Dashboard.tsx          # Main entry, search, analytics
-│   ├── StartInvestigation.tsx # Creation form
-│   ├── NetworkAnalysis.tsx    # Case selection for graphs
-│   └── GraphExplorer.tsx      # Cytoscape integration (URL: /cases/:caseId/network)
-├── App.tsx              # Router definition
-└── main.tsx             # React DOM mount point
-```
+![AI Investigation](images/Screenshot%202026-10-01%20203309.png)
+
+### 3. Dynamic Network & Graph Visualization
+The core of NETRA is its knowledge graph. Investigators can visually explore relationships (e.g., "FUNDS", "CALLS", "ASSOCIATED_WITH") to uncover hidden rings, shell companies, and the hierarchy of organized crime syndicates.
+
+![Graph Explorer](images/Screenshot%202026-10-01%20203320.png)
 
 ---
 
-## 🔄 Data Flow (Mock Backend)
+## 🛠️ Product Requirements & Features (PRD Core)
 
-Because this project currently operates as a frontend SPA without a live backend database, data flow is managed as follows:
-
-1. **Static Mock Data:** Read-only global data is imported from `src/mockData/`.
-2. **Dynamic Creation:** When an investigator creates a new case, it is serialized and saved to `localStorage.getItem('userCases')`.
-3. **Merging State:** Pages like `Dashboard.tsx` combine these sources dynamically: `[...cases, ...localCases]`.
-4. **Graph Synchronization:** Cytoscape elements share the same IDs across files. A node in `sampleGraph.json` belongs to a case because of its `data.caseId` attribute. 
-
----
-
-## 💻 Local Development Setup
-
-To run the project locally, run the following commands in your terminal:
-
-```bash
-# 1. Install dependencies
-npm install
-
-# 2. Start the development server (with Hot Module Replacement)
-npm run dev
-```
-
-*Note: Avoid using `npm run preview` during active development, as it serves static compiled files from `/dist` and bypasses Hot-Module Replacement (HMR). Always use `npm run dev`.*
+1. **Intelligent Ingestion Engine:** Parses unstructured FIRs, CDRs (Call Detail Records), and financial logs into a structured canonical model.
+2. **Knowledge Graph (Apache AGE):** Maps N-degree relationships automatically. If Suspect A in Delhi shares a bank account with Suspect B in Mumbai, the graph links them instantly.
+3. **Autonomous AI Agents:** Python/FastAPI microservice utilizing LangGraph to reason through evidence, query the graph safely, and prevent LLM hallucinations.
+4. **Strict Data Sovereignty (RBAC):** Spring Boot security layer ensures officers only see the intelligence their clearance level permits.
+5. **Generative Criminal Profiling:** AI-driven synthesis of suspect behaviors, flight risks, and operational signatures based on historical graph data.
 
 ---
 
-## 🐛 Common Development Notes / Troubleshooting
-* **Click Events & Routing:** When creating new buttons that navigate between routes, prefer React Router's native `<Link to="...">` or `<form onSubmit={...}>` over raw `onClick={navigate}` to avoid browser-level event swallowing.
-* **State Updates:** Ensure that when updating network elements, you provide a strict equality check (`===`) against the `useParams().caseId` string.
-* **Tailwind Safelisting:** The project uses specific semantic color variables (`bg-primary`, `text-on-surface`). Ensure any new UI components strictly follow these utility classes rather than hardcoded hex colors.
+## 🏗️ Architecture & Tech Stack
+
+NETRA uses a decoupled, microservice-inspired architecture to ensure scalability and separation of concerns.
+
+- **Frontend (`/frontend`):** React 18, Vite, TypeScript, Tailwind CSS, i18next (Multi-language).
+- **Backend API (`/backend`):** Java 17, Spring Boot, Spring Security (JWT), Maven.
+- **AI Service (`/ai-service`):** Python 3.12, FastAPI, LangGraph, Llama.cpp (Local LLM), Uvicorn.
+- **Database:** PostgreSQL with **Apache AGE** (Graph extension).
+
+---
+
+## ⚙️ One-Go Installation (For Evaluators)
+
+We have provided dynamic batch scripts to launch the entire stack seamlessly. 
+
+### Prerequisites
+- Node.js (v18+)
+- Java 17 & Maven
+- Python 3.12
+- PostgreSQL (with Apache AGE extension running on port `5433`)
+- WSL (Windows Subsystem for Linux) for the local LLM server.
+
+### Startup
+1. Open `start-netra.bat` in a text editor.
+2. Update the **CONFIGURATION** block at the top with the path to your local `llama-server` and `.gguf` model.
+3. Double click `start-netra.bat`. 
+
+This script will automatically start:
+- The Local AI Inference Server
+- The Python AI Microservice (Port 8000)
+- The Spring Boot Gateway (Port 8080)
+- The React Frontend (Port 5173)
+
+To safely terminate all services, run `stop-netra.bat`.
+
+---
+
+## 🤝 SIH 2026
+Built for the Smart India Hackathon.

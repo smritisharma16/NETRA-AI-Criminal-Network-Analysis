@@ -1,0 +1,13 @@
+﻿{
+  "header": {
+    "toggle_lang": "हिंदी"
+  },
+  "dashboard": {
+    "title": "Dashboard Overview",
+    "subtitle": "Network Analysis & Intelligence Summary",
+    "total_cases": "Total Cases",
+    "active_leads": "Active Leads",
+    "flagged_entities": "Flagged Entities",
+    "network_alerts": "Network Alerts"
+  }
+}

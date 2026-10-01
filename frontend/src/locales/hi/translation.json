@@ -1,0 +1,13 @@
+﻿{
+  "header": {
+    "toggle_lang": "English"
+  },
+  "dashboard": {
+    "title": "डैशबोर्ड अवलोकन",
+    "subtitle": "नेटवर्क विश्लेषण और इंटेलिजेंस सारांश",
+    "total_cases": "कुल मामले",
+    "active_leads": "सक्रिय लीड",
+    "flagged_entities": "चिह्नित संस्थाएं",
+    "network_alerts": "नेटवर्क अलर्ट"
+  }
+}

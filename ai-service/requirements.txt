@@ -1,7 +1,12 @@
-fastapi
+﻿fastapi
 uvicorn
 pydantic
 pytest
 httpx
 splink
 duckdb
+psycopg_pool
+psycopg[binary]
+langgraph
+langchain
+langgraph-checkpoint-postgres
